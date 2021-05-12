@@ -1,0 +1,98 @@
+<html>
+<head>
+	<title>{{title|e}}</title>
+	<style>
+h1:first-child {
+	margin-top: 0;
+}
+.card {
+	width: 90%;
+	max-width: 700px;
+	margin: 10px auto 20px auto;
+	padding: 10px;
+	-webkit-box-shadow: 0px 5px 10px 5px rgba(0,0,0,0.5);
+	box-shadow: 0px 5px 10px 5px rgba(0,0,0,0.5);
+}
+.card > h1 {
+	border-width: 1px;
+	border-color: black;
+	border-style: none none solid none;
+	margin: 0 -10px;
+	padding: 0 20px;
+	font-family: sans-serif;
+}
+.card > .summary {
+	padding-left: 30px;
+	font-family: sans-serif;
+	font-style: italic;
+}
+.card > .description { }
+
+.diagram-box {
+	overflow-x: auto;
+	background: hsl(30,20%,95%);
+	text-align: center;
+}
+.syntax {
+	background: hsl(30,20%,95%);
+	font-family: monospace;
+	white-space: pre-wrap;
+	padding: 0 20px 20px 20px;
+}
+
+/* EBNF */
+g.terminal.regex > rect {
+	fill: lightblue;
+}
+
+/* Railroad */
+svg.railroad-diagram {
+	background-color:hsl(30,20%,95%);
+}
+svg.railroad-diagram path {
+	stroke-width:3;
+	stroke:black;
+	fill:rgba(0,0,0,0);
+}
+svg.railroad-diagram text {
+	font:bold 14px monospace;
+	text-anchor:middle;
+}
+svg.railroad-diagram text.label{
+	text-anchor:start;
+}
+svg.railroad-diagram text.comment{
+	font:italic 12px monospace;
+}
+svg.railroad-diagram rect{
+	stroke-width:3;
+	stroke:black;
+	fill:hsl(120,100%,90%);
+}
+svg.railroad-diagram rect.group-box {
+	stroke: gray;
+	stroke-dasharray: 10 5;
+	fill: none;
+}
+</style>
+</head>
+
+<body>
+</body>
+{% for rule in rules %}
+	<div class="card">
+		<h1><a id="rule-{{rule.name|e}}">{{rule.label|e}}</a></h1>
+{% if rule.summary %}
+		<div class="summary">{{rule.summary|markdown}}</div>
+{% endif %}
+{% if rule.syntax %}
+		<div class="diagram-box">{{rule.syntax|railroad}}</div>
+		<div class="syntax">{{rule.syntax|ebnf}}</div>
+{% endif %}
+{% if rule.description %}
+		<div class="description">{{rule.description|markdown}}</div>
+{% endif %}
+	</div>
+{% endfor %}
+</html>
+
