@@ -5,6 +5,44 @@ import ebnf
 import jinja2
 from markdown import markdown
 
+def main():
+	import sys, argparse
+	parser = argparse.ArgumentParser(
+		description = "Generates documentation for a formal syntax.",
+		epilog = "created by Yoann Arseneau")
+	parser.add_argument('template')
+	parser.add_argument(
+		'-i', '--input',
+		help = "the definition file",
+		type = argparse.FileType('r'),
+		default = sys.stdin)
+	parser.add_argument(
+		'-o', '--output',
+		help = "the output file",
+		type = argparse.FileType('w'),
+		default = sys.stdout)
+	opts = parser.parse_args(sys.argv[1:])
+
+	env = jinja2.Environment(loader = jinja2.FileSystemLoader('.'))
+	env.filters.update(
+		railroad = syntaxToRailroad,
+		ebnf = syntaxToEbnf,
+		markdown = markdown)
+
+	spec = toml.load(opts.input)
+	if opts.input.close:
+		opts.input.close()
+	rules = spec["rules"]
+	for i in range(len(rules)):
+		rule = rules[i]
+		if "syntax" in rule:
+			rule["syntax"] = ebnf.Reader(rule["syntax"]).read()
+		if "label" not in rule:
+			rule["label"] = rule.get("name")
+	env.get_template(opts.template).stream(**spec).dump(opts.output)
+	if opts.output.close:
+		opts.output.close()
+
 def syntaxToRailroad(node):
 	if isinstance(node, str):
 		node = ebnf.Reader(node).read()
@@ -65,18 +103,6 @@ def toEbnf(node, brace):
 	else:
 		raise ValueError("unexpected value: " + str(node))
 
-env = jinja2.Environment(loader = jinja2.FileSystemLoader('.'))
-env.filters.update(
-	railroad = syntaxToRailroad,
-	ebnf = syntaxToEbnf,
-	markdown = markdown)
-with open('spec.toml') as f: spec=toml.load(f)
-rules = spec["rules"]
-for i in range(len(rules)):
-	rule = rules[i]
-	if "syntax" in rule:
-		rule["syntax"] = ebnf.Reader(rule["syntax"]).read()
-	if "label" not in rule:
-		rule["label"] = rule.get("name")
-env.get_template('body.html').stream(**spec).dump('output.html')
+if __name__ == "__main__":
+	main()
 
