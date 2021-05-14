@@ -1,0 +1,38 @@
+title = "EBNF syntax"
+
+[[rules]]
+name = "group"
+syntax = ''' item+ ('|' item+)* '''
+
+[[rules]]
+name = "item"
+syntax = ''' (identifier | literal | class | '(' group ')') [?*+]? | comment | regex '''
+
+[[rules]]
+name = "identifier"
+syntax = ''' [a-zA-Z0-9_] [a-zA-Z0-9._-]* '''
+
+[[rules]]
+name = "literal"
+syntax = ''' '\'' ([^'] | '\\' .)* '\'' '''
+
+[[rules]]
+name = "class"
+syntax = ''' ('[' | '[^' | '[-' | '[^-') class-item* ('-' char-class?)? ']' '''
+
+[[rules]]
+name="class-item"
+syntax = ''' class-character ('-' class-character)? '''
+
+[[rules]]
+name = "class-character"
+syntax = ''' [^\[\]\\-] | '\\' [\[\]\\-] | /\\x[\da-fA-F]{2}/ '''
+
+[[rules]]
+name = "comment"
+syntax = ''' '/*' [^*]* ([^/] [^*]*)* '*/' '''
+
+[[rules]]
+name = "regex"
+syntax = ''' '/' ([^/\\] | '\\' .)* '/' 'i'? '''
+

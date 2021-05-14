@@ -1,103 +1,36 @@
-from abc import ABC, abstractmethod
 import re
 
-import railroad as rr
-
-# Syntax ABC
-class Node(ABC):
-	@abstractmethod
-	def toEbnf(self, group): pass
-	@abstractmethod
-	def toRailroad(self): pass
-	@abstractmethod
-	def __len__(self): pass
-class Container(Node):
-	def __init__(self, items, sep):
-		if len(items) <= 0:
-			raise ValueError("need at least one item")
-		self.items = items
-		self.sep = str(sep)
-	def toEbnf(self, group=False):
-		if len(self.items) > 1:
-			text = self.sep.join(x.toEbnf(True) for x in self.items)
-			return f'({text})' if group else text
-		else:
-			return self.items[0].toEbnf(group)
-	def itemsAsRailroad(self):
-		return (x.toRailroad() for x in self.items)
-	def __len__(self):
-		return len(self.items)
-class Quantifier(Node):
-	def __init__(self, item: Node, suffix: str):
-		self.item = item
-		self.suffix = suffix
-	def toEbnf(self, group=False) -> str:
-		return self.item.toEbnf(True) + self.suffix
-	def __len__(self) -> int:
-		return 1
-class Leaf(Node):
-	def __len__(self) -> int:
-		return 1
-
-# render
-def renderEbnf(item, write, prefix:str='', sep:str='\n'):
-	if isinstance(item, str):
-		item = Reader(item).read()
-	if isinstance(item, Alternation):
-		write(f'{prefix}::= {item.items[0].toEbnf()}')
-		for i in range(1, len(item.items)):
-			write(f'{sep}{prefix}  | {item.items[i].toEbnf()}')
-	else:
-		write(f'{prefix}::= {item.toEbnf()}')
-def renderRailroad(item, write, css=rr.DEFAULT_STYLE):
-	if isinstance(item, str):
-		item = Reader(item).read()
-	rr.Diagram(item.toRailroad(), css=css).writeSvg(write)
-
 # Containers
-class Alternation(Container):
+class Alternation:
 	def __init__(self, *items):
-		super().__init__(items, ' | ')
-	def toRailroad(self):
-		return rr.Choice(0, *self.itemsAsRailroad())
-class Sequence(Container):
+		if len(items) < 2:
+			raise ValueError("must have at least two item")
+		self.items = items
+class Sequence:
 	def __init__(self, *items):
-		super().__init__(items, ' ')
-	def toRailroad(self):
-		return rr.Sequence(*self.itemsAsRailroad())
+		if len(items) < 2:
+			raise ValueError("must have at least two item")
+		self.items = items
 
 # Quantifiers
-class Optional(Quantifier):
-	def __init__(self, item: Node):
-		super().__init__(item, '?')
-	def toRailroad(self):
-		return rr.Optional(self.item.toRailroad())
-class ZeroOrMore(Quantifier):
-	def __init__(self, item: Node):
-		super().__init__(item, '*')
-	def toRailroad(self):
-		return rr.ZeroOrMore(self.item.toRailroad())
-class OneOrMore(Quantifier):
-	def __init__(self, item: Node):
-		super().__init__(item, '+')
-	def toRailroad(self):
-		return rr.OneOrMore(self.item.toRailroad())
+class Optional:
+	def __init__(self, item):
+		self.item = item
+class ZeroOrMore:
+	def __init__(self, item):
+		self.item = item
+class OneOrMore:
+	def __init__(self, item):
+		self.item = item
 
 # Leaf
-class Terminal(Leaf):
-	def __init__(self, text, cls = ''):
+class Terminal:
+	def __init__(self, text, cls = None):
 		self.text = text
-	def toEbnf(self, group=False):
-		return self.text
-	def toRailroad(self):
-		return rr.Terminal(self.text)
-class NonTerminal(Leaf):
+		self.cls = cls or ''
+class NonTerminal:
 	def __init__(self, text):
 		self.text = text
-	def toEbnf(self, group=False):
-		return self.text
-	def toRailroad(self):
-		return rr.NonTerminal(self.text)
 
 class Reader:
 	def __init__(self, source):
@@ -116,8 +49,10 @@ class Reader:
 				break
 		if len(alternation) > 1:
 			return Alternation(*alternation)
-		else:
+		elif len(alternation) == 1:
 			return alternation[0]
+		else:
+			raise ValueError(self.error("error at %p: unexpected end of text"))
 	def readSequence(self):
 		sequence = []
 		while True:
@@ -125,29 +60,42 @@ class Reader:
 				sequence.append(item)
 			else:
 				break
-		return Sequence(*sequence)
+		if len(sequence) > 1:
+			return Sequence(*sequence)
+		elif len(sequence) == 1:
+			return sequence[0]
+		else:
+			raise ValueError(self.error("error at %p: unexpected end of text"))
 	def readItem(self):
+		# read item
 		if match := self.readMatch(r"\w[\w.-]*"):
 			# identifier
 			item = NonTerminal(match.group(0))
 		elif match := self.readMatch(r"\'(?:[^\'\\]|\\.)*\'"):
 			# literal
 			item = Terminal(match.group(0), cls="literal")
+		elif match := self.readMatch(r'/\*[^*]*(?:[^/][^*]*)*\*/'):
+			# comment
+			return Terminal(match.group(0), cls="comment")
 		elif match := self.readMatch(r'/(?:[^/\\]|\\.)*/i?'):
 			# regex
-			item = Terminal(match.group(0), cls="regex")
+			return Terminal(match.group(0), cls="regex")
 		elif item := self.readClass():
 			pass
 		elif self.readLiteral('.'):
+			# "any" char class
 			item = Terminal('.', cls="char-class")
 		elif self.readLiteral('('):
+			# group
 			item = self.readAlternation()
 			if not item:
 				raise ValueError(self.error("error at %p: expecting alternation after '('"))
 			if not self.readLiteral(')'):
 				raise ValueError(self.error("error at %p: expecting closing brace ')'"))
 		else:
+			# no next item
 			return None
+		# read quantifier
 		if self.readLiteral('?'):
 			item = Optional(item)
 		elif self.readLiteral('*'):

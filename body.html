@@ -40,11 +40,6 @@ h1:first-child {
 	padding: 0 20px 20px 20px;
 }
 
-/* EBNF */
-g.terminal.regex > rect {
-	fill: lightblue;
-}
-
 /* Railroad */
 svg.railroad-diagram {
 	background-color:hsl(30,20%,95%);
@@ -74,11 +69,24 @@ svg.railroad-diagram rect.group-box {
 	stroke-dasharray: 10 5;
 	fill: none;
 }
+
+g.literal > rect {
+}
+g.regex > rect {
+	fill: pink;
+}
+g.char-class > rect {
+	fill: lightblue;
+}
+
+/*
+transform-origin: center center;
+transform: skew(-15deg) translate(7.5px, 0);
+*/
 </style>
 </head>
 
 <body>
-</body>
 {% for rule in rules %}
 	<div class="card">
 		<h1><a id="rule-{{rule.name|e}}">{{rule.label|e}}</a></h1>
@@ -94,5 +102,6 @@ svg.railroad-diagram rect.group-box {
 {% endif %}
 	</div>
 {% endfor %}
+</body>
 </html>
 
