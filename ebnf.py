@@ -4,12 +4,12 @@ import re
 class Alternation:
 	def __init__(self, *items):
 		if len(items) < 2:
-			raise ValueError("must have at least two item")
+			raise ValueError("must have at least two items")
 		self.items = items
 class Sequence:
 	def __init__(self, *items):
 		if len(items) < 2:
-			raise ValueError("must have at least two item")
+			raise ValueError("must have at least two items")
 		self.items = items
 
 # Quantifiers
@@ -118,7 +118,7 @@ class Reader:
 		if self.readLiteral('-', False):
 			items.append('-')
 			if item := self.readClass():
-				items.append(item)
+				items.append(item.text)
 		if not self.readLiteral(']', False):
 			raise ValueError(self.error("error at %p: expecting closing ']'"))
 		return Terminal(f'[{"".join(items)}]', cls="char-class")
@@ -148,18 +148,32 @@ class Reader:
 		source = self.source
 		line = 1
 		col = 1
+		lineStart = 0
 		last = None
 		for i in range(self.off):
 			c = source[i]
 			if c == '\r':
 				line += 1
 				col = 1
+				lineStart = i
 			elif c == '\n':
 				if last != '\r':
 					line += 1
 					col = 1
+					lineStart = i
 			else:
 				col += 1
 			last = c
-		return msg.replace('%p', f"{line}:{col}")
+		for i in range(i + 1, len(source))
+			if c == '\r' || c == '\n':
+				lineEnd = i
+				break
+		if not lineEnd:
+			lineEnd = self.off
+		text_start = max(off - 20, lineStart)
+		text_end = min(off + 20, lineEnd)
+		text = source[text_start:text_end]
+		offset = self.off - text_start
+		msg = msg.replace('%p', f'{line}:{col}')
+		return f"{msg}\n{text}\n{cursor}"
 
