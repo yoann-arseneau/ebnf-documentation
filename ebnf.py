@@ -164,8 +164,8 @@ class Reader:
 			else:
 				col += 1
 			last = c
-		for i in range(i + 1, len(source))
-			if c == '\r' || c == '\n':
+		for i in range(i + 1, len(source)):
+			if c == '\r' or c == '\n':
 				lineEnd = i
 				break
 		if not lineEnd:
@@ -175,5 +175,6 @@ class Reader:
 		text = source[text_start:text_end]
 		offset = self.off - text_start
 		msg = msg.replace('%p', f'{line}:{col}')
+		cursor = '?^?'
 		return f"{msg}\n{text}\n{cursor}"
 
