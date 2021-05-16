@@ -2,7 +2,7 @@ import io
 from functools import partial
 import pytomlpp as toml
 import railroad as rr
-import ebnf as syntax
+import syntax
 import jinja2
 from markdown import markdown
 
