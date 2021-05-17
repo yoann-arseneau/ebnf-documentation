@@ -77,7 +77,7 @@ class Reader:
 		elif match := self.readMatch(r"\"(?:[^\"\\]|\\.)*\""):
 			# literal
 			item = Terminal(match.group(0), cls="literal")
-		elif match := self.readMatch(r'/\*[^*]*(?:[^/][^*]*)*\*/'):
+		elif match := self.readMatch(r'/\*(?:[^*/]|[^*]/|\*[^/])*\*/'):
 			# comment
 			return Terminal(match.group(0), cls="comment")
 		elif match := self.readMatch(r'/(?:[^/\\]|\\.)*/i?'):
@@ -169,6 +169,7 @@ class Reader:
 		text_start = max(self.off - 20, lineStart)
 		lineEnd = None
 		for i in range(self.off, self.off + 20):
+			c = self.source[i]
 			if c == '\r' or c == '\n':
 				lineEnd = i
 				break

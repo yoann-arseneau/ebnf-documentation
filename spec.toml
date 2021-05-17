@@ -134,7 +134,7 @@ The `u` (lowercase U) escape sequence maps to a [Basic Multilingual
 Plain](https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane)
 Unicode code-point. Equivalent to one code-unit in UTF-16 encoding.
 
-The 'U' (uppercase U) escape sequence maps to any Unicode code-point.
+The `U` (uppercase U) escape sequence maps to any Unicode code-point.
 
 The documentation tool does not interpret Unicode escape sequences and as such
 will not validate them in any way; for example, the surrogate `\uD800` and
