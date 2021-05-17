@@ -74,6 +74,9 @@ class Reader:
 		elif match := self.readMatch(r"\'(?:[^\'\\]|\\.)*\'"):
 			# literal
 			item = Terminal(match.group(0), cls="literal")
+		elif match := self.readMatch(r"\"(?:[^\"\\]|\\.)*\""):
+			# literal
+			item = Terminal(match.group(0), cls="literal")
 		elif match := self.readMatch(r'/\*[^*]*(?:[^/][^*]*)*\*/'):
 			# comment
 			return Terminal(match.group(0), cls="comment")
@@ -123,7 +126,7 @@ class Reader:
 			raise ValueError(self.error("error at %p: expecting closing ']'"))
 		return Terminal(f'[{"".join(items)}]', cls="char-class")
 	def readClassItem(self):
-		c = r'(?:[^\[\]\\-]|\\[\[\]\\-]|\\x[\da-fA-F]{2})'
+		c = r'(?:[^\[\]\\-]|\\[\[\]\\-]|\\x[\da-fA-F]{2}|\\u[\da-fA-F]{4}|\\U\{[\da-fA-F]{1,6}\})'
 		if match := self.readMatch(r'\\[DSWdsw]', False):
 			return match.group(0)
 		elif match := self.readMatch(rf'{c}(?:-(?:{c}))?', False):
@@ -145,13 +148,12 @@ class Reader:
 			self.off = match.end()
 	def error(self, msg):
 		msg = str(msg)
-		source = self.source
 		line = 1
 		col = 1
 		lineStart = 0
 		last = None
 		for i in range(self.off):
-			c = source[i]
+			c = self.source[i]
 			if c == '\r':
 				line += 1
 				col = 1
@@ -164,17 +166,16 @@ class Reader:
 			else:
 				col += 1
 			last = c
-		for i in range(i + 1, len(source)):
+		text_start = max(self.off - 20, lineStart)
+		lineEnd = None
+		for i in range(self.off, self.off + 20):
 			if c == '\r' or c == '\n':
 				lineEnd = i
 				break
-		if not lineEnd:
-			lineEnd = self.off
-		text_start = max(off - 20, lineStart)
-		text_end = min(off + 20, lineEnd)
-		text = source[text_start:text_end]
+		text_end = lineEnd or (self.off + 20)
+		text = self.source[text_start:text_end]
 		offset = self.off - text_start
 		msg = msg.replace('%p', f'{line}:{col}')
-		cursor = '?^?'
+		cursor = (' ' * offset) + '^'
 		return f"{msg}\n{text}\n{cursor}"
 

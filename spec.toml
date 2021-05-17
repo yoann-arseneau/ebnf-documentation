@@ -1,38 +1,164 @@
-title = "EBNF syntax"
+title = "BNF Syntax"
 
 [[rules]]
+label = "BNF Syntax"
+summary = 'The BNF syntax, as understood by the documentation tool'
+description = '''
+The documentation tool uses a modified
+[BNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form) syntax,
+taking inspiration from regular expressions.
+
+The main additions are the following:
+
+- Literals support escaping using the backslash `\` character
+- Item repetition using suffix `?`, `*`, or `+`
+- Character classes using regular-expression notation
+- "Any Character" class `.`
+- C-style comments delimited by `/*` and `*/`
+
+The syntax starts at [Group](#rule-group).
+'''
+
+[[rules]]
+label = "Group"
 name = "group"
-syntax = ''' item+ ('|' item+)* '''
+summary = "One or more sequences of items"
+syntax = ''' group-item+ ('|' group-item+)* '''
+description = '''
+Describes a set of choices from which exactly one must be chosen.
+
+For example:
+
+- `'Hello' 'World' | 'Bye'` describes the sequence of terminals "Hello" and "World", or the terminal "Bye" by itself.
+'''
 
 [[rules]]
-name = "item"
-syntax = ''' (identifier | literal | class | '(' group ')') [?*+]? | comment | regex '''
+label = "Group Item"
+name = "group-item"
+summary = "A single, quantifiable item, or a comment"
+syntax = '''
+  (identifier | literal | class | '.' | regex | '(' group ')') [?*+]?
+| comment
+'''
+description = '''
+All items besides the comment are quantifiable by appending a quantifier
+character.  The quantifier characters are `?` (optional), `*` (optional and
+repeatable), and `+` (repeatable).
+
+For example:
+
+- `name` refers to a non-terminal call "name"
+- `'literal'?` describes an optional terminal with the value "literal"
+- `('a' 'b')+` describes the sequence of the literals "a" and "b". They must
+  appear at least once, but may be repeated arbitrarily many times.
+'''
 
 [[rules]]
+label = "Identifier"
 name = "identifier"
+summary = "Refers to a non-terminal defined elsewhere"
 syntax = ''' [a-zA-Z0-9_] [a-zA-Z0-9._-]* '''
+description = '''
+Refers to a non-terminal defined elsewhere.  The syntax for an identifier is
+borrowed from the [NCName](https://www.w3.org/TR/xml-names/#NT-NCName) class in
+Xml.
+'''
 
 [[rules]]
+label = "Literal"
 name = "literal"
-syntax = ''' '\'' ([^'] | '\\' .)* '\'' '''
+summary = "A single-value terminal"
+syntax = '''
+  "'" ([^'] | '\\' .)* "'"
+| '"' ([^"] | '\\' .)* '"'
+'''
+description = '''
+Describes a single-value terminal. Escape sequences, while supported, are not
+well defined for literals. They are simply shown as written, and it is up to
+the reader to interpret their meaning.
+'''
 
 [[rules]]
+label = "Class"
 name = "class"
-syntax = ''' ('[' | '[^' | '[-' | '[^-') class-item* ('-' char-class?)? ']' '''
+summary = "A single-character terminal with many possible values"
+syntax = ''' '[' '^'? '-'? class-item* ('-' class?)? ']' '''
+description = '''
+Describes a set of characters.  A circumflex `^` as the first character negates
+the set (all characters not within the set).  A hypen `-` as the first or last
+character has no special meaning.  A hypen `-` followed by a character class as
+the last item is called a subtraction; it substracts characters from the parent
+class.  Though subtractions can be nested arbitrarily deep, it's generally
+discouraged to use this feature.
+
+Example classes:
+
+- `[abc]` can be `a`, `b`, or `c`
+- `[a-c]` is identical to `[abc]`
+- `[0-9a-fA-F]` represents a hexadecimal digit
+- `[a-zA-Z0-9._-]` is equivalent to the
+  [NCName](https://www.w3.org/TR/xml-names/#NT-NCName) class in Xml.
+- `[0-9-[5]]` represents any decimal digit besides 5 (equivalent to `[0-46-9]`)
+'''
 
 [[rules]]
+label = "Class Item"
 name="class-item"
+summary = "Selects characters within a character class"
 syntax = ''' class-character ('-' class-character)? '''
+description = '''
+Represents either a single character, or an inclusive range of characters if
+the hypen `-` is present. The range need not specify the smallest character
+first. It is legal to specify a range which is from a character to itself.
+'''
 
 [[rules]]
+label = "Class Character"
 name = "class-character"
-syntax = ''' [^\[\]\\-] | '\\' [\[\]\\-] | /\\x[\da-fA-F]{2}/ '''
+summary = "A single character in a character-class definition"
+syntax = '''
+  [^\[\]\\-]
+| '\\' [\[\]\\-]
+| /\x[0-9a-f]{2}/i
+| /\u[0-9a-f]{4}/i
+| /\U\{[0-9a-f]{1,6}\}/i
+'''
+description = '''
+The escape sequences enable a standardized way to represent any Unicode
+code-point, regardless of the definition file's encoding.
+
+The `x` escape sequence maps to the first 256 Unicode code-points (equivalent
+to ISO-8859-1 encoding).
+
+The `u` (lowercase U) escape sequence maps to a [Basic Multilingual
+Plain](https://en.wikipedia.org/wiki/Plane_(Unicode)#Basic_Multilingual_Plane)
+Unicode code-point. Equivalent to one code-unit in UTF-16 encoding.
+
+The 'U' (uppercase U) escape sequence maps to any Unicode code-point.
+
+The documentation tool does not interpret Unicode escape sequences and as such
+will not validate them in any way; for example, the surrogate `\uD800` and
+invalid code-point `\U{FFFFFF}` can appear anywhere, despite Unicode rules
+insisting otherwise.
+'''
 
 [[rules]]
-name = "comment"
-syntax = ''' '/*' [^*]* ([^/] [^*]*)* '*/' '''
-
-[[rules]]
+label = "Regular Expression"
 name = "regex"
+summary = "A complex terminal"
 syntax = ''' '/' ([^/\\] | '\\' .)* '/' 'i'? '''
+description = '''
+Represents a complex terminal which may otherwise require multiple rules to
+describe.
+'''
+
+[[rules]]
+label = "Comment"
+name = "comment"
+summary = "Has no meaning in the syntax"
+syntax = ''' '/*' ([^*/] | [^*] '/' | '*' [^/])* '*/' '''
+description = '''
+Has no meaning in the syntax. Provides inline comments which are helpful when
+referring to a specific item in a syntax rule.
+'''
 

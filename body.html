@@ -5,6 +5,12 @@
 h1:first-child {
 	margin-top: 0;
 }
+code {
+	background: lightgray;
+	padding: 1px 5px;
+	border-radius: 5px;
+}
+
 .card {
 	width: 90%;
 	max-width: 750px;
@@ -89,8 +95,9 @@ transform: skew(-15deg) translate(7.5px, 0);
 <body>
 {% for rule in rules %}
 	<div class="card">
-		<h1><a id="rule-{{rule.name|e}}">{{rule.label|e}}</a></h1>
-{% if rule.summary %}
+{% if rule.label %}
+		<h1><a{% if rule.name %} id="rule-{{rule.name|e}}"{% endif %}>{{rule.label|e}}</a></h1>
+{% endif %}{% if rule.summary %}
 		<div class="summary">{{rule.summary|markdown}}</div>
 {% endif %}{% if rule.syntax %}
 		<div class="diagram-box">{{rule.syntax|railroad}}</div>

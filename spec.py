@@ -4,7 +4,7 @@ import pytomlpp as toml
 import railroad as rr
 import syntax
 import jinja2
-from markdown import markdown
+import markdown
 
 def main():
 	import sys, argparse
@@ -24,11 +24,15 @@ def main():
 		default = sys.stdout)
 	opts = parser.parse_args(sys.argv[1:])
 
+	mdContext = markdown.Markdown(
+		extensions = ['fenced_code', 'codehilite'],
+		extension_configs = { 'codehilite': { 'noclasses': True } })
+
 	env = jinja2.Environment(loader = jinja2.FileSystemLoader('.'))
 	env.filters.update(
 		railroad = syntaxToRailroad,
 		ebnf = syntaxToEbnf,
-		markdown = markdown)
+		markdown = mdContext.convert)
 
 	spec = toml.load(opts.input)
 	if opts.input.close:
