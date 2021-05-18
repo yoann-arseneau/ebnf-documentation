@@ -1,39 +1,95 @@
+import typing
+from typing import Callable
+from abc import ABC, abstractmethod
 import re
 
+# Syntax ABC
+class Node(ABC):
+	@abstractmethod
+	def __str__(self) -> str:
+		pass
+
+class Container(Node):
+	def __init__(self, *items: typing.Sequence[Node]):
+		if len(items) < 2:
+			raise ValueError("must have at least two items")
+		self.items = items
+	def __str__(self) -> str:
+		return '(' + self.sep().join((str(x) for x in self.items)) + ')'
+	@staticmethod
+	@abstractmethod
+	def sep() -> str:
+		pass
+class Quantifier(Node):
+	def __str__(self):
+		return f'{self.item}{self.suffix()}'
+	@staticmethod
+	@abstractmethod
+	def suffix() -> str:
+		pass
+class Leaf(Node):
+	def __str__(self) -> str:
+		return self.text
+
 # Containers
-class Alternation:
-	def __init__(self, *items):
-		if len(items) < 2:
-			raise ValueError("must have at least two items")
-		self.items = items
-class Sequence:
-	def __init__(self, *items):
-		if len(items) < 2:
-			raise ValueError("must have at least two items")
-		self.items = items
+class Alternation(Container):
+	def __init__(self, *items: typing.Sequence[Node]):
+		super().__init__(*items)
+	@staticmethod
+	def sep() -> str:
+		return " | "
+class Sequence(Container):
+	def __init__(self, *items: typing.Sequence[Node]):
+		super().__init__(*items)
+	@staticmethod
+	def sep() -> str:
+		return " "
 
 # Quantifiers
-class Optional:
-	def __init__(self, item):
+class Optional(Quantifier):
+	def __init__(self, item: Node):
 		self.item = item
-class ZeroOrMore:
-	def __init__(self, item):
+	@staticmethod
+	def suffix() -> str:
+		return "?"
+class ZeroOrMore(Quantifier):
+	def __init__(self, item: Node):
 		self.item = item
-class OneOrMore:
-	def __init__(self, item):
+	@staticmethod
+	def suffix() -> str:
+		return "*"
+class OneOrMore(Quantifier):
+	def __init__(self, item: Node):
 		self.item = item
+	@staticmethod
+	def suffix() -> str:
+		return "+"
 
 # Leaf
-class Terminal:
-	def __init__(self, text, cls = None):
+class Terminal(Leaf):
+	def __init__(self, text: str, cls: typing.Optional[str] = None):
 		self.text = text
 		self.cls = cls or ''
-class NonTerminal:
-	def __init__(self, text):
+class NonTerminal(Leaf):
+	def __init__(self, text: str):
 		self.text = text
 
+# Parser
+_class_char = r'(?:[^\[\]\\-]|\\[\[\]\\-]|\\x[\da-fA-F]{2}|\\u[\da-fA-F]{4}|\\U\{[\da-fA-F]{1,6}\})'
+
+_whitespace = re.compile(r'\s+')
+_identifier = re.compile(r"\w[\w.-]*")
+_literal_sq = re.compile(r"\'(?:[^\'\\]|\\.)*\'")
+_literal_dq = re.compile(r"\"(?:[^\"\\]|\\.)*\"")
+_comment = re.compile(r'/\*(?:[^*/]|[^*]/|\*[^/])*\*/')
+_regex = re.compile(r'/(?:[^/\\]|\\.)*/i?')
+_class_builtin = re.compile(r'\\[DSWdsw]')
+_class_item = re.compile(rf'{_class_char}(?:-(?:{_class_char}))?')
+
+del _class_char
+
 class Reader:
-	def __init__(self, source):
+	def __init__(self, source: str):
 		self.source = str(source)
 		self.off = 0
 	def read(self):
@@ -41,7 +97,7 @@ class Reader:
 		if self.off < len(self.source):
 			raise ValueError(self.error("error at %p: invalid character"))
 		return alternation
-	def readAlternation(self):
+	def readAlternation(self) -> Node:
 		alternation = []
 		while True:
 			alternation.append(self.readSequence())
@@ -52,8 +108,8 @@ class Reader:
 		elif len(alternation) == 1:
 			return alternation[0]
 		else:
-			raise ValueError(self.error("error at %p: unexpected end of text"))
-	def readSequence(self):
+			raise ValueError(self.error("error at %p: invalid character"))
+	def readSequence(self) -> Node:
 		sequence = []
 		while True:
 			if item := self.readItem():
@@ -65,24 +121,21 @@ class Reader:
 		elif len(sequence) == 1:
 			return sequence[0]
 		else:
-			raise ValueError(self.error("error at %p: unexpected end of text"))
-	def readItem(self):
+			raise ValueError(self.error("error at %p: invalid character"))
+	def readItem(self) -> Node:
 		# read item
-		if match := self.readMatch(r"\w[\w.-]*"):
+		if match := self.readMatch(_identifier):
 			# identifier
 			item = NonTerminal(match.group(0))
-		elif match := self.readMatch(r"\'(?:[^\'\\]|\\.)*\'"):
+		elif match := self.readMatch(_literal_sq) or self.readMatch(_literal_dq):
 			# literal
 			item = Terminal(match.group(0), cls="literal")
-		elif match := self.readMatch(r"\"(?:[^\"\\]|\\.)*\""):
-			# literal
-			item = Terminal(match.group(0), cls="literal")
-		elif match := self.readMatch(r'/\*(?:[^*/]|[^*]/|\*[^/])*\*/'):
+		elif match := self.readMatch(_comment):
 			# comment
 			return Terminal(match.group(0), cls="comment")
-		elif match := self.readMatch(r'/(?:[^/\\]|\\.)*/i?'):
+		elif match := self.readMatch(_regex):
 			# regex
-			return Terminal(match.group(0), cls="regex")
+			item = Terminal(match.group(0), cls="regex")
 		elif item := self.readClass():
 			pass
 		elif self.readLiteral('.'):
@@ -106,7 +159,7 @@ class Reader:
 		elif self.readLiteral('+'):
 			item = OneOrMore(item)
 		return item
-	def readClass(self):
+	def readClass(self) -> Terminal:
 		if not self.readLiteral('['):
 			return None
 		items = []
@@ -125,28 +178,27 @@ class Reader:
 		if not self.readLiteral(']', False):
 			raise ValueError(self.error("error at %p: expecting closing ']'"))
 		return Terminal(f'[{"".join(items)}]', cls="char-class")
-	def readClassItem(self):
-		c = r'(?:[^\[\]\\-]|\\[\[\]\\-]|\\x[\da-fA-F]{2}|\\u[\da-fA-F]{4}|\\U\{[\da-fA-F]{1,6}\})'
-		if match := self.readMatch(r'\\[DSWdsw]', False):
+	def readClassItem(self) -> str:
+		if match := self.readMatch(_class_builtin, False):
 			return match.group(0)
-		elif match := self.readMatch(rf'{c}(?:-(?:{c}))?', False):
+		elif match := self.readMatch(_class_item, False):
 			return match.group(0)
-	def readLiteral(self, value, skipWhitespace = True):
+	def readLiteral(self, value: str, skipWhitespace: bool = True) -> typing.Optional[str]:
 		if skipWhitespace:
 			self.skipWhitespace()
 		if value == self.source[self.off : self.off+len(value)]:
 			self.off += len(value)
 			return value
-	def readMatch(self, regex, skipWhitespace = True):
+	def readMatch(self, regex: re.Pattern, skipWhitespace: bool = True) -> typing.Optional[re.Match]:
 		if skipWhitespace:
 			self.skipWhitespace()
-		if match := re.compile(regex).match(self.source, self.off):
+		if match := regex.match(self.source, self.off):
 			self.off = match.end()
 			return match
-	def skipWhitespace(self):
-		if match := re.compile(r'\s+').match(self.source, self.off):
+	def skipWhitespace(self) -> None:
+		if match := _whitespace.match(self.source, self.off):
 			self.off = match.end()
-	def error(self, msg):
+	def error(self, msg: str) -> str:
 		msg = str(msg)
 		line = 1
 		col = 1
@@ -166,14 +218,14 @@ class Reader:
 			else:
 				col += 1
 			last = c
-		text_start = max(self.off - 20, lineStart)
+		text_start = max(self.off - 40, lineStart)
 		lineEnd = None
-		for i in range(self.off, self.off + 20):
+		for i in range(self.off, min(self.off + 40, len(self.source))):
 			c = self.source[i]
 			if c == '\r' or c == '\n':
 				lineEnd = i
 				break
-		text_end = lineEnd or (self.off + 20)
+		text_end = lineEnd or (self.off + 40)
 		text = self.source[text_start:text_end]
 		offset = self.off - text_start
 		msg = msg.replace('%p', f'{line}:{col}')
