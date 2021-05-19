@@ -1,4 +1,6 @@
-import io
+#!/usr/bin/python3.9
+
+import os, io
 from functools import partial
 import pytomlpp as toml
 import railroad as rr
@@ -11,7 +13,10 @@ def main():
 	parser = argparse.ArgumentParser(
 		description = "Generates documentation for a formal syntax.",
 		epilog = "created by Yoann Arseneau")
-	parser.add_argument('template')
+	parser.add_argument(
+		'template',
+		nargs = '?',
+		default = 'body.html')
 	parser.add_argument(
 		'-i', '--input',
 		help = "the definition file",
@@ -28,7 +33,8 @@ def main():
 		extensions = ['fenced_code', 'codehilite'],
 		extension_configs = { 'codehilite': { 'noclasses': True } })
 
-	env = jinja2.Environment(loader = jinja2.FileSystemLoader('.'))
+	env = jinja2.Environment(
+		loader = jinja2.FileSystemLoader(['.', os.path.dirname(__file__)]))
 	env.filters.update(
 		railroad = syntaxToRailroad,
 		ebnf = syntaxToEbnf,
