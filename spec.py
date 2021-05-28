@@ -43,7 +43,7 @@ def main():
 	spec = toml.load(opts.input)
 	if opts.input.close:
 		opts.input.close()
-	rules = spec["rules"]
+	rules = spec.get("rules") or []
 	for i in range(len(rules)):
 		rule = rules[i]
 		if "syntax" in rule:
