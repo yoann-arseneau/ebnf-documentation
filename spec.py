@@ -30,7 +30,7 @@ def main():
 	opts = parser.parse_args(sys.argv[1:])
 
 	mdContext = markdown.Markdown(
-		extensions = ['fenced_code', 'codehilite'],
+		extensions = ['fenced_code', 'codehilite', 'tables'],
 		extension_configs = { 'codehilite': { 'noclasses': True } })
 
 	env = jinja2.Environment(
